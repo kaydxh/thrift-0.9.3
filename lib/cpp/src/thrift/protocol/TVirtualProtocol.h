@@ -39,6 +39,9 @@ using apache::thrift::transport::TTransport;
  * You probably don't want to use this class directly.  Use TVirtualProtocol
  * instead.
  */
+
+//重写了抽象类TProtocol的非虚拟化的方法，这些方法都抛出一个方法为实现（TProtocolException::NOT_IMPLEMENTED）的异常
+//这样TVirtualProtocol提供默认的继承基类，就不会产生无限递归调用，因为会抛异常
 class TProtocolDefaults : public TProtocol {
 public:
   uint32_t readMessageBegin(std::string& name, TMessageType& messageType, int32_t& seqid) {
@@ -308,6 +311,32 @@ protected:
  * Concrete TProtocol classes should inherit from TVirtualProtocol
  * so they don't have to manually override virtual methods.
  */
+
+
+//它定义为一个模板类，这个模板类有两个参数，一个用于数据传输的真正协议，一个是用来继承的，它本身没有对协议具体内容做实现，所以说它是一个虚的协议类
+
+//（1）继承的类可以通过模板参数传递，也就是说你现在没有办法肯定它现在带地继承什么类，只是默认参数值是我们上面介绍的抽象类的默认实现类。
+//（2）类里面的方法实现全部是采用把this指针转换为第一个模板参数的类型然后调用模板参数类型的相关方法。
+
+//这个类只是提供一个空的架构壳，继承的类可以指定，当然也可以采用默认的，后面分析具体协议实现的时候可以发现大多数协议也确实是采用默认的继承类，
+//且大多数继承这个虚协议的类都是传递第一个参数为自身，也就是调用自己定义的相应函数，如：
+
+
+//template <class Transport_>
+
+//class TBinaryProtocolT : public TVirtualProtocol< TBinaryProtocolT<Transport_> > {
+
+//…….
+
+//}；
+
+//如果不从定义的默认实现类继承，直接从抽象类TProtocol继承怎样会产生无限递归调用。
+//现在我们假设直接从抽象类TProtocol继承，那么如果一个指向子类对象的父类（TProtocol）调用writeMessageBegin方法，
+//因为这个方法不是虚拟函数（不会动态绑定）所以就会调用父类的writeMessageBegin方法，然后父类会直接调用它的纯虚函数writeMessageBegin_virt，
+//这个函数就会动态绑定，就会执行子类的实现，在这里就是通过虚协议类TVirtualProtocol实现的，而这个函数又会调用子类的writeMessageBegin方法，
+//如果子类没有实现这个方法，那么就又回到父类的这个方法了,从而产生无限递归调用。
+//那么如果默认是从默认实现类TProtocolDefaults继承，那么就会执行它的writeMessageBegin方法，从而抛出一个异常，就不会产生无限递归调用。
+
 template <class Protocol_, class Super_ = TProtocolDefaults>
 class TVirtualProtocol : public Super_ {
 public:

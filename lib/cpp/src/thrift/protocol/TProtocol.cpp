@@ -25,7 +25,7 @@ namespace protocol {
 
 TProtocol::~TProtocol() {}
 uint32_t TProtocol::skip_virt(TType type) {
-  return ::apache::thrift::protocol::skip(*this, type);
+  return ::apache::thrift::protocol::skip(*this, type); // 调用::apache::thrift::protocol命名空间下全局函数实现
 }
 
 TProtocolFactory::~TProtocolFactory() {}

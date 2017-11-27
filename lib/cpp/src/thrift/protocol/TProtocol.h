@@ -168,7 +168,7 @@ using apache::thrift::transport::TTransport;
  * Take special note of the T_END type which is used specifically to mark
  * the end of a sequence of fields.
  */
-enum TType {
+enum TType { //Thrift协议支持的数据类型枚举定义
   T_STOP       = 0,
   T_VOID       = 1,
   T_BOOL       = 2,
@@ -193,11 +193,11 @@ enum TType {
  * Enumerated definition of the message types that the Thrift protocol
  * supports.
  */
-enum TMessageType {
+enum TMessageType { //thrift支持的消息类型
   T_CALL       = 1,
   T_REPLY      = 2,
   T_EXCEPTION  = 3,
-  T_ONEWAY     = 4
+  T_ONEWAY     = 4 //函数的异步调用方式
 };
 
 static const uint32_t DEFAULT_RECURSION_LIMIT = 64;
@@ -216,6 +216,10 @@ static const uint32_t DEFAULT_RECURSION_LIMIT = 64;
  * looking ahead character by character for a close tag).
  *
  */
+
+//对于每一种数据类型都提供了读写的开始和介绍的方法，这里读写方法应该是针对网络IO读写，不过真正实现网络读写还不是这里的方法，这里方法主要处理数据，
+//例如对数据格式做调整。真正实现网络IO读写是在TTransport相关类实现的，那里还会对传输的方式做相应控制，例如是否压缩。
+
 class TProtocol {
 public:
   virtual ~TProtocol();
@@ -224,6 +228,7 @@ public:
    * Writing functions.
    */
 
+  //纯虚函数
   virtual uint32_t writeMessageBegin_virt(const std::string& name,
                                           const TMessageType messageType,
                                           const int32_t seqid) = 0;
@@ -271,10 +276,12 @@ public:
 
   virtual uint32_t writeBinary_virt(const std::string& str) = 0;
 
+
+  //内部实现调用纯虚函数
   uint32_t writeMessageBegin(const std::string& name,
                              const TMessageType messageType,
                              const int32_t seqid) {
-    T_VIRTUAL_CALL();
+    T_VIRTUAL_CALL(); //打印调用日志函数
     return writeMessageBegin_virt(name, messageType, seqid);
   }
 
@@ -283,12 +290,12 @@ public:
     return writeMessageEnd_virt();
   }
 
-  uint32_t writeStructBegin(const char* name) {
+  uint32_t writeStructBegin(const char* name) { //写结构体开始
     T_VIRTUAL_CALL();
     return writeStructBegin_virt(name);
   }
 
-  uint32_t writeStructEnd() {
+  uint32_t writeStructEnd() { //写结构体结束
     T_VIRTUAL_CALL();
     return writeStructEnd_virt();
   }
@@ -539,10 +546,14 @@ public:
   /**
    * Method to arbitrarily skip over data.
    */
+
+  //跳过数据类型
   uint32_t skip(TType type) {
     T_VIRTUAL_CALL();
     return skip_virt(type);
   }
+
+  // 调用::apache::thrift::protocol命名空间下全局函数实现
   virtual uint32_t skip_virt(TType type);
 
   inline boost::shared_ptr<TTransport> getTransport() { return ptrans_; }
@@ -588,6 +599,8 @@ private:
 /**
  * Constructs input and output protocol objects given transports.
  */
+
+//抽象工厂
 class TProtocolFactory {
 public:
   TProtocolFactory() {}
