@@ -34,11 +34,15 @@ namespace protocol {
  * binary format, essentially just spitting out the raw bytes.
  *
  */
+
+//这个协议是Thrift支持的默认二进制协议，它以二进制的格式写所有的数据，基本上直接发送原始数据。因为它直接从TVirtualProtocol类继承，而且是一个模板类。
+//它的模板参数就是一个封装具体传输发送的类，这个类才是真正实现数据传输的。
+
 template <class Transport_, class ByteOrder_ = TNetworkBigEndian>
 class TBinaryProtocolT : public TVirtualProtocol<TBinaryProtocolT<Transport_, ByteOrder_> > {
 protected:
-  static const int32_t VERSION_MASK = ((int32_t)0xffff0000);
-  static const int32_t VERSION_1 = ((int32_t)0x80010000);
+  static const int32_t VERSION_MASK = ((int32_t)0xffff0000); //取得协议的掩码
+  static const int32_t VERSION_1 = ((int32_t)0x80010000); //具体协议本版号
   // VERSION_2 (0x80020000) was taken by TDenseProtocol (which has since been removed)
 
 public:
@@ -74,6 +78,25 @@ public:
   /**
    * Writing functions.
    */
+
+/*
+
+  对这个二进制协议进行一下简单的总结。
+
+（1）如果需要传输协议版本号，那么0-4字节就是协议版本号和消息类型；否则0-4字节就直接是消息名称（其实就是函数的名称）的长度，假设长度为len。
+
+（2）如果0-4字节是协议版本号和消息类型，那么5-8字节就是消息名称的长度，同样假设长度为len，然后再跟着len字节的消息名称；否则就是len字节的消息名称。
+
+（3）接下来如果没有带协议版本号的还有1字节的消息类型；
+
+（4）然后都是4字节的请求的序列号；
+
+（5）接着继续写入参数类型的结构体（但是二进制协议并没有真正写入，所以没有占用字节）；
+
+（6）如果真正的有参数的话就继续一次为每一个参数写入1字节的参数类型（在前面已经给出了参数类型的定义，就是一个枚举）、2字节的参数序号和具体参数需要的长度；
+
+*/
+  
 
   /*ol*/ uint32_t writeMessageBegin(const std::string& name,
                                     const TMessageType messageType,

@@ -17,6 +17,9 @@
  * under the License.
  */
 
+
+
+
 #ifndef _THRIFT_PROTOCOL_TBINARYPROTOCOL_TCC_
 #define _THRIFT_PROTOCOL_TBINARYPROTOCOL_TCC_ 1
 
@@ -32,12 +35,14 @@ template <class Transport_, class ByteOrder_>
 uint32_t TBinaryProtocolT<Transport_, ByteOrder_>::writeMessageBegin(const std::string& name,
                                                          const TMessageType messageType,
                                                          const int32_t seqid) {
-  if (this->strict_write_) {
-    int32_t version = (VERSION_1) | ((int32_t)messageType);
-    uint32_t wsize = 0;
-    wsize += writeI32(version);
-    wsize += writeString(name);
-    wsize += writeI32(seqid);
+  if (this->strict_write_) { //判断是否需要强制写入版本号
+    //写入协议号的目的是可以坚持客户端和服务器端是否使用相同的协议来传输的数据，保证数据格式的正确性
+    int32_t version = (VERSION_1) | ((int32_t)messageType); //本版号是协议号和消息类型的或结果
+
+    uint32_t wsize = 0; //记录写入的长度
+    wsize += writeI32(version); //写版本号
+    wsize += writeString(name); //写消息名称，这就是函数名称
+    wsize += writeI32(seqid); //写调用序列号
     return wsize;
   } else {
     uint32_t wsize = 0;
@@ -175,14 +180,16 @@ uint32_t TBinaryProtocolT<Transport_, ByteOrder_>::writeDouble(const double dub)
 template <class Transport_, class ByteOrder_>
 template <typename StrType>
 uint32_t TBinaryProtocolT<Transport_, ByteOrder_>::writeString(const StrType& str) {
-  if (str.size() > static_cast<size_t>((std::numeric_limits<int32_t>::max)()))
+  if (str.size() > static_cast<size_t>((std::numeric_limits<int32_t>::max)())) //如果字符串长度大于int32_t的最大值，就抛异常
     throw TProtocolException(TProtocolException::SIZE_LIMIT);
-  uint32_t size = static_cast<uint32_t>(str.size());
-  uint32_t result = writeI32((int32_t)size);
+
+
+  uint32_t size = static_cast<uint32_t>(str.size()); //取得字符串的长度
+  uint32_t result = writeI32((int32_t)size); //写入字符串的长度到服务器
   if (size > 0) {
-    this->trans_->write((uint8_t*)str.data(), size);
+    this->trans_->write((uint8_t*)str.data(), size); //调用具体某一个传输方式的写入函数写入字符串数据
   }
-  return result + size;
+  return result + size; //返回写入的大小
 }
 
 template <class Transport_, class ByteOrder_>
@@ -200,31 +207,31 @@ uint32_t TBinaryProtocolT<Transport_, ByteOrder_>::readMessageBegin(std::string&
                                                         int32_t& seqid) {
   uint32_t result = 0;
   int32_t sz;
-  result += readI32(sz);
+  result += readI32(sz); //读取消息的头部（可能是协议版本号和消息类型的组合，也可能直接是消息）
 
-  if (sz < 0) {
+  if (sz < 0) { //如果小于0（就是二进制为第一位以1开头，说明是带有协议版本号的
     // Check for correct version number
-    int32_t version = sz & VERSION_MASK;
-    if (version != VERSION_1) {
+    int32_t version = sz & VERSION_MASK; //取得消息的版本号
+    if (version != VERSION_1) { //如果不匹配二进制协议的版本号就抛出一个坏的协议异常
       throw TProtocolException(TProtocolException::BAD_VERSION, "Bad version identifier");
     }
-    messageType = (TMessageType)(sz & 0x000000ff);
-    result += readString(name);
-    result += readI32(seqid);
+    messageType = (TMessageType)(sz & 0x000000ff); //取得消息类型
+    result += readString(name); //取得消息名称（也就是函数名称）
+    result += readI32(seqid); //取得函数调用ID号
   } else {
-    if (this->strict_read_) {
+    if (this->strict_read_) { //要求读协议本版号，但是这种情况是不存在协议版本号的所以抛出异常
       throw TProtocolException(TProtocolException::BAD_VERSION,
                                "No version identifier... old protocol client in strict mode?");
     } else {
       // Handle pre-versioned input
       int8_t type;
-      result += readStringBody(name, sz);
-      result += readByte(type);
+      result += readStringBody(name, sz); //读取消息名称（也就是函数名称）
+      result += readByte(type);           //读取消息类型
       messageType = (TMessageType)type;
-      result += readI32(seqid);
+      result += readI32(seqid);           //读取函数调用ID号
     }
   }
-  return result;
+  return result;  //返回读取数据的长度
 }
 
 template <class Transport_, class ByteOrder_>
