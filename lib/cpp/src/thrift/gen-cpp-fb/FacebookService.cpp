@@ -59,10 +59,10 @@ FacebookService_getName_pargs::~FacebookService_getName_pargs() throw() {
 uint32_t FacebookService_getName_pargs::write(::apache::thrift::protocol::TProtocol* oprot) const {
   uint32_t xfer = 0;
   apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
-  xfer += oprot->writeStructBegin("FacebookService_getName_pargs");
+  xfer += oprot->writeStructBegin("FacebookService_getName_pargs"); //写入参数类的名称
 
-  xfer += oprot->writeFieldStop();
-  xfer += oprot->writeStructEnd();
+  xfer += oprot->writeFieldStop(); //停止写入字段
+  xfer += oprot->writeStructEnd(); //写入参数结束
   return xfer;
 }
 
@@ -2110,7 +2110,9 @@ void FacebookServiceClient::getName(std::string& _return)
 void FacebookServiceClient::send_getName()
 {
   int32_t cseqid = 0;
-  oprot_->writeMessageBegin("getName", ::apache::thrift::protocol::T_CALL, cseqid); //写一个函数调用消息RPC
+
+  //写一个函数调用消息RPC，如果使用二进制协议，那么就是调用的TBinaryProtocolT<Transport_>::writeMessageBegin函数
+  oprot_->writeMessageBegin("getName", ::apache::thrift::protocol::T_CALL, cseqid); 
 
   FacebookService_getName_pargs args;
   args.write(oprot_); //写入参数
@@ -2127,20 +2129,20 @@ void FacebookServiceClient::recv_getName(std::string& _return)
   std::string fname; //函数名称
   ::apache::thrift::protocol::TMessageType mtype; //消息的类型（调用（T_CALL）、异常（T_EXCEPTION）等）
 
-  iprot_->readMessageBegin(fname, mtype, rseqid); //从返回消息读取函数名称、消息类型
+  iprot_->readMessageBegin(fname, mtype, rseqid); //从返回消息读取函数名称、消息类型, 二进制协议调用TBinaryProtocolT<Transport_>::readMessageBegin
   if (mtype == ::apache::thrift::protocol::T_EXCEPTION) { //处理异常消息
     ::apache::thrift::TApplicationException x;
-    x.read(iprot_);
+    x.read(iprot_); //读取异常信息
     iprot_->readMessageEnd();
     iprot_->getTransport()->readEnd();
     throw x;
   }
-  if (mtype != ::apache::thrift::protocol::T_REPLY) { //处理返回消息
+  if (mtype != ::apache::thrift::protocol::T_REPLY) { //处理不是正常回复的结果
     iprot_->skip(::apache::thrift::protocol::T_STRUCT);
     iprot_->readMessageEnd();
     iprot_->getTransport()->readEnd();
   }
-  if (fname.compare("getName") != 0) { //看是否是我们需要的函数名，不是就跳过消息读取
+  if (fname.compare("getName") != 0) { //比较是否是getName函数调用返回的结果,不是就跳过消息读取
     iprot_->skip(::apache::thrift::protocol::T_STRUCT);
     iprot_->readMessageEnd();
     iprot_->getTransport()->readEnd();

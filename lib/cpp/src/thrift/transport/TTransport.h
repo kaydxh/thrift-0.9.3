@@ -32,20 +32,22 @@ namespace transport {
 /**
  * Helper template to hoist readAll implementation out of TTransport
  */
+
+// 辅助传输层的全局模板函数readAll
 template <class Transport_>
 uint32_t readAll(Transport_& trans, uint8_t* buf, uint32_t len) {
   uint32_t have = 0;
   uint32_t get = 0;
 
   while (have < len) {
-    get = trans.read(buf + have, len - have);
-    if (get <= 0) {
+    get = trans.read(buf + have, len - have); //通过具体的传输类读取剩余的需要读取的数据
+    if (get <= 0) { //处理数据以读完异常
       throw TTransportException(TTransportException::END_OF_FILE, "No more data to read.");
     }
-    have += get;
+    have += get; //已经读取的字节数
   }
 
-  return have;
+  return have; //返回读到的字节数
 }
 
 /**
@@ -53,6 +55,8 @@ uint32_t readAll(Transport_& trans, uint8_t* buf, uint32_t len) {
  * capable of either reading or writing, but not necessarily both.
  *
  */
+
+//所有传输类的基类
 class TTransport {
 public:
   /**
@@ -63,7 +67,7 @@ public:
   /**
    * Whether this transport is open.
    */
-  virtual bool isOpen() { return false; }
+  virtual bool isOpen() { return false; } //传输层是否打开
 
   /**
    * Tests whether there is more data to read or if the remote side is
@@ -73,6 +77,8 @@ public:
    * This is used by a server to check if it should listen for another
    * request.
    */
+
+  //测试是否有数据可读或者远程那边是否任然打开。当传输是打开的默认为true，不过具体的实现逻辑需要根据可能的条件。
   virtual bool peek() { return isOpen(); }
 
   /**
@@ -81,6 +87,8 @@ public:
    * @return bool Whether the transport was successfully opened
    * @throws TTransportException if opening failed
    */
+
+  //为了通信打开传输层
   virtual void open() {
     throw TTransportException(TTransportException::NOT_OPEN, "Cannot open base TTransport.");
   }
@@ -88,6 +96,8 @@ public:
   /**
    * Closes the transport.
    */
+
+  //关闭传输层
   virtual void close() {
     throw TTransportException(TTransportException::NOT_OPEN, "Cannot close base TTransport.");
   }
@@ -100,6 +110,11 @@ public:
    * @return How many bytes were actually read
    * @throws TTransportException If an error occurs
    */
+
+
+  //尝试读取指定的字节数到字符串
+  //uint8_t* buf：读入数据的本地缓存
+  //uint32_t len：需要读取数据的长度
   uint32_t read(uint8_t* buf, uint32_t len) {
     T_VIRTUAL_CALL();
     return read_virt(buf, len);
@@ -116,6 +131,8 @@ public:
    * @return How many bytes read, which must be equal to size
    * @throws TTransportException If insufficient data was read
    */
+
+  //无论如何都要读取被给长度的数据
   uint32_t readAll(uint8_t* buf, uint32_t len) {
     T_VIRTUAL_CALL();
     return readAll_virt(buf, len);
@@ -131,6 +148,8 @@ public:
    *
    * @return number of bytes read if available, 0 otherwise.
    */
+
+  //当读取完成时调用
   virtual uint32_t readEnd() {
     // default behaviour is to do nothing
     return 0;
@@ -148,6 +167,8 @@ public:
    * @param buf  The data to write out
    * @throws TTransportException if an error occurs
    */
+
+  //写入字符串到缓存，必须调用flush函数后才真正的写入，下次读取的时候才是可利用的
   void write(const uint8_t* buf, uint32_t len) {
     T_VIRTUAL_CALL();
     write_virt(buf, len);
@@ -163,6 +184,8 @@ public:
    *
    * @return number of bytes written if available, 0 otherwise
    */
+
+  //写入完成时调用
   virtual uint32_t writeEnd() {
     // default behaviour is to do nothing
     return 0;
@@ -174,6 +197,8 @@ public:
    *
    * @throws TTransportException if an error occurs
    */
+
+  //刷新任何被阻塞或缓存的数据真正被写入
   virtual void flush() {
     // default behaviour is to do nothing
   }
@@ -205,6 +230,10 @@ public:
    *         the transport's internal buffers.
    * @throws TTransportException if an error occurs
    */
+
+  //尝试返回一个指向len字节的字符串缓存并不是真正的读取消耗它。这个函数主要用于可变长度编码中，因为刚开始不知道具体长度
+  //uint8_t* buf：借入数据的缓存
+  //uint32_t *len：需要借入数据的长度
   const uint8_t* borrow(uint8_t* buf, uint32_t* len) {
     T_VIRTUAL_CALL();
     return borrow_virt(buf, len);
@@ -220,6 +249,9 @@ public:
    * @param len  How many bytes to consume
    * @throws TTransportException If an error occurs
    */
+
+  //从传输层消耗len字节的数据，这个需要根据borrow函数具体使用的长度来决定
+  //uint32_t len：消耗数据的长度
   void consume(uint32_t len) {
     T_VIRTUAL_CALL();
     consume_virt(len);
