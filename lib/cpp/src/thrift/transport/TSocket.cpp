@@ -232,24 +232,24 @@ bool TSocket::peek() {
 
 void TSocket::openConnection(struct addrinfo* res) {
 
-  if (isOpen()) {
+  if (isOpen()) {   //如果已经打开了直接返回
     return;
   }
 
-  if (!path_.empty()) {
-    socket_ = socket(PF_UNIX, SOCK_STREAM, IPPROTO_IP);
+  if (!path_.empty()) { //路径不为空
+    socket_ = socket(PF_UNIX, SOCK_STREAM, IPPROTO_IP); //创建unix domain socket
   } else {
-    socket_ = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    socket_ = socket(res->ai_family, res->ai_socktype, res->ai_protocol); //创建通用的网络通信socket
   }
 
-  if (socket_ == THRIFT_INVALID_SOCKET) {
+  if (socket_ == THRIFT_INVALID_SOCKET) { //socket 创建失败抛异常
     int errno_copy = THRIFT_GET_SOCKET_ERROR;
     GlobalOutput.perror("TSocket::open() socket() " + getSocketInfo(), errno_copy);
     throw TTransportException(TTransportException::NOT_OPEN, "socket()", errno_copy);
   }
 
   // Send timeout
-  if (sendTimeout_ > 0) {
+  if (sendTimeout_ > 0) { //如果发生超时设置大于0就调用设置发送超时函数设置发送超时
     setSendTimeout(sendTimeout_);
   }
 
@@ -263,6 +263,7 @@ void TSocket::openConnection(struct addrinfo* res) {
   }
 
   // Linger
+  ////设置优雅断开连接或关闭连接参数
   setLinger(lingerOn_, lingerVal_);
 
   // No delay
@@ -277,22 +278,24 @@ void TSocket::openConnection(struct addrinfo* res) {
 
 // Uses a low min RTO if asked to.
 #ifdef TCP_LOW_MIN_RTO
-  if (getUseLowMinRto()) {
+  if (getUseLowMinRto()) {//返回useLowMinRto_, 判断是否设置较低的最低TCP重传超时
     int one = 1;
     setsockopt(socket_, IPPROTO_TCP, TCP_LOW_MIN_RTO, &one, sizeof(one));
   }
 #endif
 
   // Set the socket to be non blocking for connect if a timeout exists
+
+  //得到socket_的标识
   int flags = THRIFT_FCNTL(socket_, THRIFT_F_GETFL, 0);
-  if (connTimeout_ > 0) {
-    if (-1 == THRIFT_FCNTL(socket_, THRIFT_F_SETFL, flags | THRIFT_O_NONBLOCK)) {
+  if (connTimeout_ > 0) { //超时已经存在
+    if (-1 == THRIFT_FCNTL(socket_, THRIFT_F_SETFL, flags | THRIFT_O_NONBLOCK)) { //设置为非阻塞
       int errno_copy = THRIFT_GET_SOCKET_ERROR;
       GlobalOutput.perror("TSocket::open() THRIFT_FCNTL() " + getSocketInfo(), errno_copy);
       throw TTransportException(TTransportException::NOT_OPEN, "THRIFT_FCNTL() failed", errno_copy);
     }
   } else {
-    if (-1 == THRIFT_FCNTL(socket_, THRIFT_F_SETFL, flags & ~THRIFT_O_NONBLOCK)) {
+    if (-1 == THRIFT_FCNTL(socket_, THRIFT_F_SETFL, flags & ~THRIFT_O_NONBLOCK)) { //没有超时，设置为阻塞
       int errno_copy = THRIFT_GET_SOCKET_ERROR;
       GlobalOutput.perror("TSocket::open() THRIFT_FCNTL " + getSocketInfo(), errno_copy);
       throw TTransportException(TTransportException::NOT_OPEN, "THRIFT_FCNTL() failed", errno_copy);
@@ -301,11 +304,11 @@ void TSocket::openConnection(struct addrinfo* res) {
 
   // Connect the socket
   int ret;
-  if (!path_.empty()) {
+  if (!path_.empty()) { //unix domain socket
 
-#ifndef _WIN32
+#ifndef _WIN32 //不支持window
     size_t len = path_.size() + 1;
-    if (len > sizeof(((sockaddr_un*)NULL)->sun_path)) {
+    if (len > sizeof(((sockaddr_un*)NULL)->sun_path)) { //path_长度不能超过最长限制
       int errno_copy = THRIFT_GET_SOCKET_ERROR;
       GlobalOutput.perror("TSocket::open() Unix Domain socket path too long", errno_copy);
       throw TTransportException(TTransportException::NOT_OPEN, " Unix Domain socket path too long");
@@ -315,7 +318,7 @@ void TSocket::openConnection(struct addrinfo* res) {
     address.sun_family = AF_UNIX;
     memcpy(address.sun_path, path_.c_str(), len);
     socklen_t structlen = static_cast<socklen_t>(sizeof(address));
-    ret = connect(socket_, (struct sockaddr*)&address, structlen);
+    ret = connect(socket_, (struct sockaddr*)&address, structlen); //连接unix domain socket
 #else
     GlobalOutput.perror("TSocket::open() Unix Domain socket path not supported on windows", -99);
     throw TTransportException(TTransportException::NOT_OPEN,
@@ -323,12 +326,12 @@ void TSocket::openConnection(struct addrinfo* res) {
 #endif
 
   } else {
-    ret = connect(socket_, res->ai_addr, static_cast<int>(res->ai_addrlen));
+    ret = connect(socket_, res->ai_addr, static_cast<int>(res->ai_addrlen)); //连接通用的socket
   }
 
   // success case
-  if (ret == 0) {
-    goto done;
+  if (ret == 0) { //失败了就会执行后面的代码，用poll来监听写事件
+    goto done; //成功了就直接跳转到完成处
   }
 
   if ((THRIFT_GET_SOCKET_ERROR != THRIFT_EINPROGRESS)
@@ -338,11 +341,11 @@ void TSocket::openConnection(struct addrinfo* res) {
     throw TTransportException(TTransportException::NOT_OPEN, "connect() failed", errno_copy);
   }
 
-  struct THRIFT_POLLFD fds[1];
-  std::memset(fds, 0, sizeof(fds));
-  fds[0].fd = socket_;
-  fds[0].events = THRIFT_POLLOUT;
-  ret = THRIFT_POLL(fds, 1, connTimeout_);
+  struct THRIFT_POLLFD fds[1]; //定于用于poll的描述符
+  std::memset(fds, 0, sizeof(fds)); //初始化为0
+  fds[0].fd = socket_; //描述符为socke
+  fds[0].events = THRIFT_POLLOUT; //接收写事件
+  ret = THRIFT_POLL(fds, 1, connTimeout_); //调用poll，有一个超时值
 
   if (ret > 0) {
     // Ensure the socket is connected and that there are no errors set
@@ -383,13 +386,14 @@ done:
   }
 }
 
+//打开连接
 void TSocket::open() {
-  if (isOpen()) {
+  if (isOpen()) { //如果已经打开就直接返回
     return;
   }
-  if (!path_.empty()) {
+  if (!path_.empty()) { //如果unix路径不为空就打开unix domian socket
     unix_open();
-  } else {
+  } else { //否则打开通用socket
     local_open();
   }
 }
@@ -397,7 +401,7 @@ void TSocket::open() {
 void TSocket::unix_open() {
   if (!path_.empty()) {
     // Unix Domain SOcket does not need addrinfo struct, so we pass NULL
-    openConnection(NULL);
+    openConnection(NULL); //调用真正的打开连接函数
   }
 }
 

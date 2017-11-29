@@ -42,6 +42,10 @@ namespace transport {
  * TVirtualTransport::read_virt() calls read(), and TTransport::read() calls
  * read_virt().)
  */
+
+//提供了抽象类TTransport的默认实现，实现了非虚拟的方法（*_virt） read(), readAll(), write(),borrow() and consume()
+//默认传输类的主要作用是作为虚拟传输类TVirtualTransport的父类
+//默认传输类的作用就是防止那些没有实现默认传输类实现的方法的子类造成递归调用（死循环了）。
 class TTransportDefaults : public TTransport {
 public:
   /*
@@ -77,6 +81,9 @@ protected:
  *
  * @author Chad Walters <chad@powerset.com>
  */
+
+//虚拟传输类采用了模板的方式来实现多继承, 即从一个默认的类继承，而另一个类采用模板参数传递
+//默认传输类的作用就是防止那些没有实现默认传输类实现的方法的子类造成递归调用（死循环了）。
 template <class Transport_, class Super_ = TTransportDefaults>
 class TVirtualTransport : public Super_ {
 public:
@@ -84,6 +91,8 @@ public:
    * Implementations of the *_virt() functions, to call the subclass's
    * non-virtual implementation function.
    */
+
+  //调用模板参数传递进来的具体某一个传输类的非虚拟函数
   virtual uint32_t read_virt(uint8_t* buf, uint32_t len) {
     return static_cast<Transport_*>(this)->read(buf, len);
   }

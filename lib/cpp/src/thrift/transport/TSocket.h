@@ -45,6 +45,9 @@ namespace transport {
  * TCP Socket implementation of the TTransport interface.
  *
  */
+
+//TSocket继承至虚拟传输类，并且把自己当做模板参数传递过去，
+//所以从虚拟传输类继承下来的虚拟函数（如read_virt）调用非虚拟函数（如read）就是TSocket自己实现的
 class TSocket : public TVirtualTransport<TSocket> {
 public:
   /**
@@ -61,6 +64,8 @@ public:
    * @param host An IP address or hostname to connect to
    * @param port The port to connect on
    */
+
+  //根据主机名和端口构造一个socket
   TSocket(const std::string& host, int port);
 
   /**
@@ -69,6 +74,8 @@ public:
    *
    * @param path The Unix domain socket e.g. "/tmp/ThriftTest.binary.thrift"
    */
+
+  //构造unix域的一个socket
   TSocket(const std::string& path);
 
   /**
@@ -251,6 +258,8 @@ public:
   /**
    * Constructor to create socket from file descriptor.
    */
+
+  ////构造socket从文件描述符
   TSocket(THRIFT_SOCKET socket);
 
   /**
