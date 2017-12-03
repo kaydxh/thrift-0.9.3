@@ -105,6 +105,7 @@ protected:
  */
 class TDispatchProcessor : public TProcessor {
 public:
+	//process是先读出函数名和类型，在调用dispatchCall（通过函数名在map中查找，如果找到，就调用相应的函数，如果没有找到，就将异常写入oprot输出协议)
   virtual bool process(boost::shared_ptr<protocol::TProtocol> in,
                        boost::shared_ptr<protocol::TProtocol> out,
                        void* connectionContext) {
