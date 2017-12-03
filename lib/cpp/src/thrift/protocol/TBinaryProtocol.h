@@ -98,49 +98,60 @@ public:
 */
   
 
+  //写4字节的版本号0x8001 0001，写4字节的函数名字长度，写函数名字，最后写4字节的序列号（默认为0x00000000）
   /*ol*/ uint32_t writeMessageBegin(const std::string& name,
                                     const TMessageType messageType,
                                     const int32_t seqid);
 
+  //没做事情
   /*ol*/ uint32_t writeMessageEnd();
 
-  inline uint32_t writeStructBegin(const char* name);
 
-  inline uint32_t writeStructEnd();
+  inline uint32_t writeStructBegin(const char* name); //没做事情
 
-  inline uint32_t writeFieldBegin(const char* name, const TType fieldType, const int16_t fieldId);
+  inline uint32_t writeStructEnd(); //没做事情
 
-  inline uint32_t writeFieldEnd();
+  //写了１个字节的字段数据类型，和2个字节字段的顺序号(thrift文件中的定义)
+  inline uint32_t writeFieldBegin(const char* name, const TType fieldType, const int16_t fieldId); 
 
-  inline uint32_t writeFieldStop();
+  inline uint32_t writeFieldEnd(); //没做事情
 
+  inline uint32_t writeFieldStop(); //写一个字节的0x00 T_STOP）
+
+  //写一个字节keyType, 一个字节valType，再写4个字节的size
   inline uint32_t writeMapBegin(const TType keyType, const TType valType, const uint32_t size);
 
-  inline uint32_t writeMapEnd();
+  inline uint32_t writeMapEnd(); //没做事情
 
+  //写一个字节的elemType， 4字节的size
   inline uint32_t writeListBegin(const TType elemType, const uint32_t size);
 
-  inline uint32_t writeListEnd();
+  inline uint32_t writeListEnd(); //没做事情
 
+  //写一个字节的elemType， 4字节的size
   inline uint32_t writeSetBegin(const TType elemType, const uint32_t size);
 
+  //没做事情
   inline uint32_t writeSetEnd();
 
-  inline uint32_t writeBool(const bool value);
+  inline uint32_t writeBool(const bool value); //写一个字节，0或1
 
-  inline uint32_t writeByte(const int8_t byte);
+  inline uint32_t writeByte(const int8_t byte); //写一个字节
 
-  inline uint32_t writeI16(const int16_t i16);
+  inline uint32_t writeI16(const int16_t i16); //写二个字节
 
-  inline uint32_t writeI32(const int32_t i32);
 
-  inline uint32_t writeI64(const int64_t i64);
+  inline uint32_t writeI32(const int32_t i32); //写四个字节
 
-  inline uint32_t writeDouble(const double dub);
+  inline uint32_t writeI64(const int64_t i64); //写八个字节
 
+  inline uint32_t writeDouble(const double dub); //写八个字节
+
+  //先写4字节的字符串长度，再写数据
   template <typename StrType>
   inline uint32_t writeString(const StrType& str);
 
+  //先写４字节消息头表示字节数组长度，再写字节数组内容
   inline uint32_t writeBinary(const std::string& str);
 
   /**
@@ -177,20 +188,24 @@ public:
 
   inline uint32_t readByte(int8_t& byte);
 
+  //读取2个字节的数据，把i16赋值为读取的数据，返回2，这里是先尝试从缓存区读，没有在从传输层读取 
   inline uint32_t readI16(int16_t& i16);
 
+  //返回4字节，并将i32设置为读取4字节的值
   inline uint32_t readI32(int32_t& i32);
 
   inline uint32_t readI64(int64_t& i64);
 
   inline uint32_t readDouble(double& dub);
 
+   //先读4字节的长度，再读该长度的字符串
   template <typename StrType>
   inline uint32_t readString(StrType& str);
 
   inline uint32_t readBinary(std::string& str);
 
 protected:
+  //读取sz字节的字符串，并把读取的字符串赋值为str（首先尝试从缓存中借数据，没有在从传输层读），返回sz，
   template <typename StrType>
   uint32_t readStringBody(StrType& str, int32_t sz);
 

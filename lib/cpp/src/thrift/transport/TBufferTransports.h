@@ -50,6 +50,10 @@ namespace transport {
  * that have to be done when the buffers are full or empty.
  *
  */
+
+//缓存基类TBufferBase就是让传输类所有的读写函数都提供缓存来提高性能
+//它在通常情况下采用memcpy来设计和实现快路径的读写访问操作，这些操作函数常都是小、非虚拟和内联函数。
+//TBufferBase是一个抽象的基类，子类必须实现慢路径的读写函数等操作，慢路径的读写等操作主要是为了在缓存已经满或空的情况下执行
 class TBufferBase : public TVirtualTransport<TBufferBase> {
 
 public:
@@ -61,14 +65,16 @@ public:
    * is empty, we call out to our slow path, implemented by a subclass.
    * This method is meant to eventually be nonvirtual and inlinable.
    */
+
+  //读函数
   uint32_t read(uint8_t* buf, uint32_t len) {
-    uint8_t* new_rBase = rBase_ + len;
-    if (TDB_LIKELY(new_rBase <= rBound_)) {
-      std::memcpy(buf, rBase_, len);
-      rBase_ = new_rBase;
-      return len;
+    uint8_t* new_rBase = rBase_ + len;  //得到需要读到的缓存边界，也是下次读的开始位置
+    if (TDB_LIKELY(new_rBase <= rBound_)) { //判断缓存是否有足够的数据可读，采用了分支预测技术
+      std::memcpy(buf, rBase_, len);   //直接内存拷贝
+      rBase_ = new_rBase;  //更新新的缓存读基地址
+      return len;  //返回读取的长度
     }
-    return readSlow(buf, len);
+    return readSlow(buf, len); //如果缓存已经不能够满足读取长度需要就执行慢读
   }
 
   /**
@@ -81,8 +87,27 @@ public:
       rBase_ = new_rBase;
       return len;
     }
-    return apache::thrift::transport::readAll(*this, buf, len);
+    return apache::thrift::transport::readAll(*this, buf, len); // 辅助传输层的全局模板函数readAll
   }
+
+  /*
+  // 辅助传输层的全局模板函数readAll
+  template <class Transport_>
+  uint32_t readAll(Transport_& trans, uint8_t* buf, uint32_t len) {
+    uint32_t have = 0;
+    uint32_t get = 0;
+
+    while (have < len) {
+      get = trans.read(buf + have, len - have); //通过具体的传输类读取剩余的需要读取的数据
+      if (get <= 0) { //处理数据以读完异常
+        throw TTransportException(TTransportException::END_OF_FILE, "No more data to read.");
+      }
+      have += get; //已经读取的字节数
+    }
+
+    return have; //返回读到的字节数
+  }
+  */
 
   /**
    * Fast-path write.
@@ -93,35 +118,41 @@ public:
    * subclass.  This method is meant to eventually be nonvirtual and
    * inlinable.
    */
+
+  //快速写函数
   void write(const uint8_t* buf, uint32_t len) {
-    uint8_t* new_wBase = wBase_ + len;
-    if (TDB_LIKELY(new_wBase <= wBound_)) {
-      std::memcpy(wBase_, buf, len);
-      wBase_ = new_wBase;
+    uint8_t* new_wBase = wBase_ + len; //写入后的新缓存基地址
+    if (TDB_LIKELY(new_wBase <= wBound_)) { //判断缓存是否有足够的空间可以写入
+      std::memcpy(wBase_, buf, len); //内存拷贝
+      wBase_ = new_wBase; //更新基地址
       return;
     }
-    writeSlow(buf, len);
+    writeSlow(buf, len); //缓存空间不足就调用慢写函数
   }
 
   /**
    * Fast-path borrow.  A lot like the fast-path read.
    */
+
+  //快速路径借
   const uint8_t* borrow(uint8_t* buf, uint32_t* len) {
-    if (TDB_LIKELY(static_cast<ptrdiff_t>(*len) <= rBound_ - rBase_)) {
+    if (TDB_LIKELY(static_cast<ptrdiff_t>(*len) <= rBound_ - rBase_)) { //判断是否有足够的长度借
       // With strict aliasing, writing to len shouldn't force us to
       // refetch rBase_ from memory.  TODO(dreiss): Verify this.
-      *len = static_cast<uint32_t>(rBound_ - rBase_);
-      return rBase_;
+      *len = static_cast<uint32_t>(rBound_ - rBase_); //能够借出去的长度
+      return rBase_; //返回借的基地址
     }
-    return borrowSlow(buf, len);
+    return borrowSlow(buf, len); //不足就采用慢路径借
   }
 
   /**
    * Consume doesn't require a slow path.
    */
+
+  //消费函数
   void consume(uint32_t len) {
-    if (TDB_LIKELY(static_cast<ptrdiff_t>(len) <= rBound_ - rBase_)) {
-      rBase_ += len;
+    if (TDB_LIKELY(static_cast<ptrdiff_t>(len) <= rBound_ - rBase_)) { //判断缓存是否够消费
+      rBase_ += len; //更新已经消耗的长度
     } else {
       throw TTransportException(TTransportException::BAD_ARGS, "consume did not follow a borrow.");
     }
@@ -151,28 +182,30 @@ protected:
   TBufferBase() : rBase_(NULL), rBound_(NULL), wBase_(NULL), wBound_(NULL) {}
 
   /// Convenience mutator for setting the read buffer.
+  //设置读缓存空间地址
   void setReadBuffer(uint8_t* buf, uint32_t len) {
-    rBase_ = buf;
-    rBound_ = buf + len;
+    rBase_ = buf; //读缓存开始地址
+    rBound_ = buf + len; //读缓存地址界限
   }
 
   /// Convenience mutator for setting the write buffer.
+  //设置写缓存地址空间
   void setWriteBuffer(uint8_t* buf, uint32_t len) {
-    wBase_ = buf;
-    wBound_ = buf + len;
+    wBase_ = buf; //写缓存开始地址
+    wBound_ = buf + len;    //写缓存地址界限
   }
 
   virtual ~TBufferBase() {}
 
   /// Reads begin here.
-  uint8_t* rBase_;
+  uint8_t* rBase_; //开始读的位置
   /// Reads may extend to just before here.
-  uint8_t* rBound_;
+  uint8_t* rBound_; //读界限
 
   /// Writes begin here.
-  uint8_t* wBase_;
+  uint8_t* wBase_; //开始写的位置
   /// Writes may extend to just before here.
-  uint8_t* wBound_;
+  uint8_t* wBound_; //写界限
 };
 
 /**
@@ -183,14 +216,14 @@ protected:
  */
 class TBufferedTransport : public TVirtualTransport<TBufferedTransport, TBufferBase> {
 public:
-  static const int DEFAULT_BUFFER_SIZE = 512;
+  static const int DEFAULT_BUFFER_SIZE = 512;   //缓存的大小默认是512字节
 
   /// Use default buffer sizes.
   TBufferedTransport(boost::shared_ptr<TTransport> transport)
     : transport_(transport),
       rBufSize_(DEFAULT_BUFFER_SIZE),
       wBufSize_(DEFAULT_BUFFER_SIZE),
-      rBuf_(new uint8_t[rBufSize_]),
+      rBuf_(new uint8_t[rBufSize_]), //分配缓存
       wBuf_(new uint8_t[wBufSize_]) {
     initPointers();
   }
@@ -220,10 +253,10 @@ public:
   bool isOpen() { return transport_->isOpen(); }
 
   bool peek() {
-    if (rBase_ == rBound_) {
-      setReadBuffer(rBuf_.get(), transport_->read(rBuf_.get(), rBufSize_));
+    if (rBase_ == rBound_) { //判断读的基地址与读边界是否重合了，也就是已经读取完毕
+      setReadBuffer(rBuf_.get(), transport_->read(rBuf_.get(), rBufSize_));   //重新读取底层来的数据
     }
-    return (rBound_ > rBase_);
+    return (rBound_ > rBase_); //边界大于基地址就是有未读状态数据
   }
 
   void close() {
@@ -303,9 +336,12 @@ public:
  * other end to always do fixed-length reads.
  *
  */
+
+//帧传输类就是按照一帧的固定大小来传输数据，所有的写操作首先都是在内存中完成的直到调用了flush操作，
+//然后传输节点在flush操作之后将所有数据根据数据的有效载荷写入数据的长度的二进制块发送出去，允许在接收的另一端按照固定的长度来读取。
 class TFramedTransport : public TVirtualTransport<TFramedTransport, TBufferBase> {
 public:
-  static const int DEFAULT_BUFFER_SIZE = 512;
+  static const int DEFAULT_BUFFER_SIZE = 512; 
   static const int DEFAULT_MAX_FRAME_SIZE = 256 * 1024 * 1024;
 
   /// Use default buffer sizes.

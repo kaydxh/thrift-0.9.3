@@ -349,28 +349,31 @@ void TSocket::openConnection(struct addrinfo* res) {
 
   if (ret > 0) {
     // Ensure the socket is connected and that there are no errors set
+    // 确保socket已经被连接并且没有错误被设置
     int val;
     socklen_t lon;
     lon = sizeof(int);
-    int ret2 = getsockopt(socket_, SOL_SOCKET, SO_ERROR, cast_sockopt(&val), &lon);
+    int ret2 = getsockopt(socket_, SOL_SOCKET, SO_ERROR, cast_sockopt(&val), &lon); //得到错误选项参数
     if (ret2 == -1) {
       int errno_copy = THRIFT_GET_SOCKET_ERROR;
       GlobalOutput.perror("TSocket::open() getsockopt() " + getSocketInfo(), errno_copy);
       throw TTransportException(TTransportException::NOT_OPEN, "getsockopt()", errno_copy);
     }
     // no errors on socket, go to town
-    if (val == 0) {
+    if (val == 0) { // socket没有错误也直接到完成处了
       goto done;
     }
     GlobalOutput.perror("TSocket::open() error on socket (after THRIFT_POLL) " + getSocketInfo(),
                         val);
     throw TTransportException(TTransportException::NOT_OPEN, "socket open() error", val);
-  } else if (ret == 0) {
+
+  } else if (ret == 0) { // socket 超时
     // socket timed out
     string errStr = "TSocket::open() timed out " + getSocketInfo();
     GlobalOutput(errStr.c_str());
     throw TTransportException(TTransportException::NOT_OPEN, "open() timed out");
-  } else {
+
+  } else {  // poll()出错了
     // error on THRIFT_POLL()
     int errno_copy = THRIFT_GET_SOCKET_ERROR;
     GlobalOutput.perror("TSocket::open() THRIFT_POLL() " + getSocketInfo(), errno_copy);
@@ -379,9 +382,10 @@ void TSocket::openConnection(struct addrinfo* res) {
 
 done:
   // Set socket back to normal mode (blocking)
+  //设置socket到原来的模式了（阻塞）
   THRIFT_FCNTL(socket_, THRIFT_F_SETFL, flags);
 
-  if (path_.empty()) {
+  if (path_.empty()) { //如果是unix domain socket就设置缓存地址
     setCachedAddress(res->ai_addr, static_cast<socklen_t>(res->ai_addrlen));
   }
 }
@@ -408,15 +412,15 @@ void TSocket::unix_open() {
 void TSocket::local_open() {
 
 #ifdef _WIN32
-  TWinsockSingleton::create();
+  TWinsockSingleton::create(); //兼容window平台
 #endif // _WIN32
 
-  if (isOpen()) {
+  if (isOpen()) { //打开了就直接返回
     return;
   }
 
   // Validate port number
-  if (port_ < 0 || port_ > 0xFFFF) {
+  if (port_ < 0 || port_ > 0xFFFF) { //验证端口是否为有效值
     throw TTransportException(TTransportException::BAD_ARGS, "Specified port is invalid");
   }
 
@@ -425,13 +429,13 @@ void TSocket::local_open() {
   res0 = NULL;
   int error;
   char port[sizeof("65535")];
-  std::memset(&hints, 0, sizeof(hints));
+  std::memset(&hints, 0, sizeof(hints)); //内存设置为0
   hints.ai_family = PF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG;
   sprintf(port, "%d", port_);
 
-  error = getaddrinfo(host_.c_str(), port, &hints, &res0);
+  error = getaddrinfo(host_.c_str(), port, &hints, &res0); //根据主机名得到所有网卡地址信息
 
 #ifdef _WIN32
   if (error == WSANO_DATA) {
@@ -451,15 +455,19 @@ void TSocket::local_open() {
 
   // Cycle through all the returned addresses until one
   // connects or push the exception up.
+
+  // 循环遍历所有的网卡地址信息，直到有一个成功打开
   for (res = res0; res; res = res->ai_next) {
     try {
-      openConnection(res);
-      break;
+      openConnection(res); //调用打开函数,失败会抛异常
+      break; //成功就退出循环
     } catch (TTransportException&) {
-      if (res->ai_next) {
+      if (res->ai_next) { //异常处理，是否还有下一个地址，有就继续
         close();
       } else {
         close();
+
+        // 清除地址信息内存和资源
         freeaddrinfo(res0); // cleanup on failure
         throw;
       }
@@ -467,6 +475,7 @@ void TSocket::local_open() {
   }
 
   // Free address structure memory
+  //释放地址结构内存
   freeaddrinfo(res0);
 }
 
@@ -485,18 +494,22 @@ void TSocket::setSocketFD(THRIFT_SOCKET socket) {
   socket_ = socket;
 }
 
+//需要注意区分返回错误为EAGAIN的情况，因为当超时和系统资源耗尽都会产生这个错误（没有明显的特征可以区分它们），
+// 所以Thrift在实现的时候设置一个最大的尝试次数，如果超过这个了这个次数就认为是系统资源耗尽了
 uint32_t TSocket::read(uint8_t* buf, uint32_t len) {
   if (socket_ == THRIFT_INVALID_SOCKET) {
     throw TTransportException(TTransportException::NOT_OPEN, "Called read on non-open socket");
   }
 
-  int32_t retries = 0;
+  int32_t retries = 0; //重试的次数
 
   // THRIFT_EAGAIN can be signalled both when a timeout has occurred and when
   // the system is out of resources (an awesome undocumented feature).
   // The following is an approximation of the time interval under which
   // THRIFT_EAGAIN is taken to indicate an out of resources error.
   uint32_t eagainThresholdMicros = 0;
+
+  ///如果设置了接收超时时间，那么计算最大时间间隔来判断是否系统资源耗尽
   if (recvTimeout_) {
     // if a readTimeout is specified along with a max number of recv retries, then
     // the threshold will ensure that the read timeout is not exceeded even in the
@@ -508,11 +521,11 @@ try_again:
   // Read from the socket
   struct timeval begin;
   if (recvTimeout_ > 0) {
-    THRIFT_GETTIMEOFDAY(&begin, NULL);
+    THRIFT_GETTIMEOFDAY(&begin, NULL); //得到开始时间
   } else {
     // if there is no read timeout we don't need the TOD to determine whether
     // an THRIFT_EAGAIN is due to a timeout or an out-of-resource condition.
-    begin.tv_sec = begin.tv_usec = 0;
+    begin.tv_sec = begin.tv_usec = 0; //默认为0，不需要时间来判断是超时了
   }
 
   int got = 0;
@@ -546,41 +559,48 @@ try_again:
     // falling through means there is something to recv and it cannot block
   }
 
+  //从socket接收数据
   got = static_cast<int>(recv(socket_, cast_sockopt(buf), len, 0));
   // THRIFT_GETTIMEOFDAY can change THRIFT_GET_SOCKET_ERROR
+
+  //保存错误代码
   int errno_copy = THRIFT_GET_SOCKET_ERROR;
 
   // Check for error on read
-  if (got < 0) {
-    if (errno_copy == THRIFT_EAGAIN) {
+  if (got < 0) { //如果读取错误
+    if (errno_copy == THRIFT_EAGAIN) { //是否为EAGAIN
       // if no timeout we can assume that resource exhaustion has occurred.
+      //如果没有设置超时时间，那么就是资源耗尽错误了！抛出异常
       if (recvTimeout_ == 0) {
         throw TTransportException(TTransportException::TIMED_OUT,
                                   "THRIFT_EAGAIN (unavailable resources)");
       }
       // check if this is the lack of resources or timeout case
       struct timeval end;
-      THRIFT_GETTIMEOFDAY(&end, NULL);
+      THRIFT_GETTIMEOFDAY(&end, NULL); //如果出错，会改变errno
+
+      //计算消耗的时间
       uint32_t readElapsedMicros = static_cast<uint32_t>(((end.tv_sec - begin.tv_sec) * 1000 * 1000)
                                                          + (end.tv_usec - begin.tv_usec));
 
       if (!eagainThresholdMicros || (readElapsedMicros < eagainThresholdMicros)) {
-        if (retries++ < maxRecvRetries_) {
-          THRIFT_SLEEP_USEC(50);
+        if (retries++ < maxRecvRetries_) { //重试次数还小于最大重试次数
+          THRIFT_SLEEP_USEC(50); //睡眠50毫秒
           goto try_again;
-        } else {
+        } else { //否则就认为是资源不足了
           throw TTransportException(TTransportException::TIMED_OUT,
                                     "THRIFT_EAGAIN (unavailable resources)");
         }
-      } else {
+      } else { 
         // infer that timeout has been hit
         throw TTransportException(TTransportException::TIMED_OUT, "THRIFT_EAGAIN (timed out)");
       }
     }
 
     // If interrupted, try again
+    //如果是中断并且重试次数没有超过
     if (errno_copy == THRIFT_EINTR && retries++ < maxRecvRetries_) {
-      goto try_again;
+      goto try_again; //那么重试
     }
 
     if (errno_copy == THRIFT_ECONNRESET) {
@@ -606,6 +626,17 @@ try_again:
 
   return got;
 }
+
+//写函数写的内容可能一次没有发送完毕，所以是在一个while循环中一直发送直到指定的内容全部发送完毕
+
+/*
+send 分阻塞和非阻塞模式的！
+1 在阻塞模式下,
+ send函数是将应用程序请求发送的数据拷贝到发送缓存中发送并得到接收端的确认后再返回
+2 在非阻塞模式下,
+  send函数仅仅是将数据拷贝到协议栈的缓存区而已,如果缓存区可用空间不够,则尽能力的拷贝,返回成功拷贝的大小;如缓存区可用空间为0,则返回-1,同时设置errno为EAGAIN.
+但是此时这些数据并不一定马上被传到连接的另一端。如果协议在后续的传送过程中出现网络错误的话，那么下一个Socket函数就会返回SOCKET_ERROR
+*/
 
 void TSocket::write(const uint8_t* buf, uint32_t len) {
   uint32_t sent = 0;
@@ -635,9 +666,10 @@ uint32_t TSocket::write_partial(const uint8_t* buf, uint32_t len) {
   flags |= MSG_NOSIGNAL;
 #endif // ifdef MSG_NOSIGNAL
 
+  //发送数据
   int b = static_cast<int>(send(socket_, const_cast_sockopt(buf + sent), len - sent, flags));
 
-  if (b < 0) {
+  if (b < 0) { //define THRIFT_GET_SOCKET_ERROR errno
     if (THRIFT_GET_SOCKET_ERROR == THRIFT_EWOULDBLOCK || THRIFT_GET_SOCKET_ERROR == THRIFT_EAGAIN) {
       return 0;
     }
