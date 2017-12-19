@@ -482,16 +482,16 @@ private:
       }
     }
 
-    buffer_ = buf;
-    bufferSize_ = size;
+    buffer_ = buf; //buf起始地址
+    bufferSize_ = size; //buf大小
 
-    rBase_ = buffer_;
-    rBound_ = buffer_ + wPos;
+    rBase_ = buffer_; //读起始地址
+    rBound_ = buffer_ + wPos; //读界限
     // TODO(dreiss): Investigate NULL-ing this if !owner.
-    wBase_ = buffer_ + wPos;
-    wBound_ = buffer_ + bufferSize_;
+    wBase_ = buffer_ + wPos; //写起始地址
+    wBound_ = buffer_ + bufferSize_; //写界限
 
-    owner_ = owner;
+    owner_ = owner; //TMemoryBuffer是否自己拥有该buffer_,拥有的话，就TMemoryBuffer自己负责释放缓存
 
     // rBound_ is really an artifact.  In principle, it should always be
     // equal to wBase_.  We update it in a few places (computeRead, etc.).
@@ -582,11 +582,13 @@ public:
   void close() {}
 
   // TODO(dreiss): Make bufPtr const.
+  //获取缓存中的可读数据
   void getBuffer(uint8_t** bufPtr, uint32_t* sz) {
     *bufPtr = rBase_;
     *sz = static_cast<uint32_t>(wBase_ - rBase_);
   }
 
+  //将缓存中的可读数据以string的对象返回
   std::string getBufferAsString() {
     if (buffer_ == NULL) {
       return "";
@@ -657,26 +659,30 @@ public:
   uint32_t readAppendToString(std::string& str, uint32_t len);
 
   // return number of bytes read
+  //返回已读的字节数
   uint32_t readEnd() {
     // This cast should be safe, because buffer_'s size is a uint32_t
     uint32_t bytes = static_cast<uint32_t>(rBase_ - buffer_);
     if (rBase_ == wBase_) {
-      resetBuffer();
+      resetBuffer(); //读地址如果和写地址相等，那么就要复位，因为没有可读的数据了
     }
     return bytes;
   }
 
   // Return number of bytes written
+  //返回已写的字节数
   uint32_t writeEnd() {
     // This cast should be safe, because buffer_'s size is a uint32_t
     return static_cast<uint32_t>(wBase_ - buffer_);
   }
 
+  //返回可读的缓存大小
   uint32_t available_read() const {
     // Remember, wBase_ is the real rBound_.
     return static_cast<uint32_t>(wBase_ - rBase_);
   }
 
+  //返回可写的缓存大小
   uint32_t available_write() const { return static_cast<uint32_t>(wBound_ - wBase_); }
 
   // Returns a pointer to where the client can write data to append to
@@ -684,6 +690,8 @@ public:
   // write of the provided length.  The returned pointer is very convenient for
   // passing to read(), recv(), or similar. You must call wroteBytes() as soon
   // as data is written or the buffer will not be aware that data has changed.
+
+  //返回能写len个字节的写地址
   uint8_t* getWritePtr(uint32_t len) {
     ensureCanWrite(len);
     return wBase_;
@@ -691,6 +699,7 @@ public:
 
   // Informs the buffer that the client has written 'len' bytes into storage
   // that had been provided by getWritePtr().
+  ////写地址先偏移len字节，空余出来 
   void wroteBytes(uint32_t len);
 
   /*
@@ -717,10 +726,13 @@ protected:
   void ensureCanWrite(uint32_t len);
 
   // Compute the position and available data for reading.
+  //计算可读的数据，返回的可读数据长度为要求读的len和缓存中的能读取的数据长度的最小值
   void computeRead(uint32_t len, uint8_t** out_start, uint32_t* out_give);
 
+  //将可读数据（<=len）copy到buf中,因为要读取的数据长度<=len，所以叫readslow
   uint32_t readSlow(uint8_t* buf, uint32_t len);
 
+  //首先分配内存到足够写len的空间，再往wBase_里写数据，因为开始缓存的大小<=len，所以要先分配，再写，就叫writeshow
   void writeSlow(const uint8_t* buf, uint32_t len);
 
   const uint8_t* borrowSlow(uint8_t* buf, uint32_t* len);

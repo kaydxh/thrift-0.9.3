@@ -46,6 +46,8 @@ using apache::thrift::transport::TTransportFactory;
  * such as additional "arguments" to these methods (stored in the object
  * instance's state).
  */
+
+//负责处理TServer类产生的事件
 class TServerEventHandler {
 public:
   virtual ~TServerEventHandler() {}
@@ -53,11 +55,15 @@ public:
   /**
    * Called before the server begins.
    */
+
+  //开启服务之前调用
   virtual void preServe() {}
 
   /**
    * Called when a new client has connected and is about to being processing.
    */
+
+  //创建上下文，当一个新的客户端连接后，处理之前调用
   virtual void* createContext(boost::shared_ptr<TProtocol> input,
                               boost::shared_ptr<TProtocol> output) {
     (void)input;
@@ -69,6 +75,7 @@ public:
    * Called when a client has finished request-handling to delete server
    * context.
    */
+
   virtual void deleteContext(void* serverContext,
                              boost::shared_ptr<TProtocol> input,
                              boost::shared_ptr<TProtocol> output) {

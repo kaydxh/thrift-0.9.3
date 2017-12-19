@@ -379,6 +379,7 @@ void TFramedTransport::flush() {
   }
 }
 
+//返回已经写的数据长度
 uint32_t TFramedTransport::writeEnd() {
   return static_cast<uint32_t>(wBase_ - wBuf_.get());
 }
@@ -405,6 +406,7 @@ uint32_t TFramedTransport::readEnd() {
   return bytes_read;
 }
 
+//计算可读的数据，返回的可读数据长度为要求读的len和缓存中的能读取的数据长度的最小值
 void TMemoryBuffer::computeRead(uint32_t len, uint8_t** out_start, uint32_t* out_give) {
   // Correct rBound_ so we can use the fast path in the future.
   rBound_ = wBase_;
@@ -430,6 +432,7 @@ uint32_t TMemoryBuffer::readSlow(uint8_t* buf, uint32_t len) {
   return give;
 }
 
+//可读数据len（可能小于len），追加到str中 
 uint32_t TMemoryBuffer::readAppendToString(std::string& str, uint32_t len) {
   // Don't get some stupid assertion failure.
   if (buffer_ == NULL) {
@@ -458,6 +461,7 @@ void TMemoryBuffer::ensureCanWrite(uint32_t len) {
   }
 
   // Grow the buffer as necessary.
+  //buffer的size以翻倍的大小变大，直到size>=需要的len
   uint32_t new_size = bufferSize_;
   while (len > avail) {
     new_size = new_size > 0 ? new_size * 2 : 1;
@@ -478,6 +482,7 @@ void TMemoryBuffer::ensureCanWrite(uint32_t len) {
   bufferSize_ = new_size;
 }
 
+//首先分配内存到足够写len的空间，再往wBase_里写数据
 void TMemoryBuffer::writeSlow(const uint8_t* buf, uint32_t len) {
   ensureCanWrite(len);
 
@@ -486,14 +491,16 @@ void TMemoryBuffer::writeSlow(const uint8_t* buf, uint32_t len) {
   wBase_ += len;
 }
 
+//写地址先偏移len字节，空余出来 
 void TMemoryBuffer::wroteBytes(uint32_t len) {
   uint32_t avail = available_write();
-  if (len > avail) {
+  if (len > avail) { //所写的数据长度大于缓存区可写的大小，就抛异常
     throw TTransportException("Client wrote more bytes than size of buffer.");
   }
   wBase_ += len;
 }
 
+//缓存里可读数据>=len时，才返回可读缓存地址，否则返回NULL
 const uint8_t* TMemoryBuffer::borrowSlow(uint8_t* buf, uint32_t* len) {
   (void)buf;
   rBound_ = wBase_;
