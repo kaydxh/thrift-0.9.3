@@ -21,21 +21,25 @@ uint32_t FacebookService_getName_args::read(::apache::thrift::protocol::TProtoco
   ::apache::thrift::protocol::TType ftype;
   int16_t fid;
 
+  //没做事情
   xfer += iprot->readStructBegin(fname);
 
   using ::apache::thrift::protocol::TProtocolException;
 
-
   while (true)
   {
+    //读取字段类型和id
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
     xfer += iprot->skip(ftype);
+
+    //没做事情
     xfer += iprot->readFieldEnd();
   }
 
+  //没做事情
   xfer += iprot->readStructEnd();
 
   return xfer;
@@ -59,10 +63,10 @@ FacebookService_getName_pargs::~FacebookService_getName_pargs() throw() {
 uint32_t FacebookService_getName_pargs::write(::apache::thrift::protocol::TProtocol* oprot) const {
   uint32_t xfer = 0;
   apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
-  xfer += oprot->writeStructBegin("FacebookService_getName_pargs"); //写入参数类的名称
+  xfer += oprot->writeStructBegin("FacebookService_getName_pargs"); //写入参数类的名称 没做事情
 
-  xfer += oprot->writeFieldStop(); //停止写入字段
-  xfer += oprot->writeStructEnd(); //写入参数结束
+  xfer += oprot->writeFieldStop(); //停止写入字段 写一个字节的0x00 T_STOP
+  xfer += oprot->writeStructEnd(); //写入参数结束 没做事情
   return xfer;
 }
 
@@ -79,6 +83,7 @@ uint32_t FacebookService_getName_result::read(::apache::thrift::protocol::TProto
   ::apache::thrift::protocol::TType ftype;
   int16_t fid;
 
+   //没做事情
   xfer += iprot->readStructBegin(fname);
 
   using ::apache::thrift::protocol::TProtocolException;
@@ -86,6 +91,7 @@ uint32_t FacebookService_getName_result::read(::apache::thrift::protocol::TProto
 
   while (true)
   {
+    //读取字段类型和id
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -104,6 +110,8 @@ uint32_t FacebookService_getName_result::read(::apache::thrift::protocol::TProto
         xfer += iprot->skip(ftype);
         break;
     }
+
+     //没做事情
     xfer += iprot->readFieldEnd();
   }
 

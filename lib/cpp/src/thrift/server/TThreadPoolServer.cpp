@@ -123,6 +123,7 @@ boost::shared_ptr<apache::thrift::concurrency::ThreadManager> TThreadPoolServer:
 }
 
 void TThreadPoolServer::onClientConnected(const shared_ptr<TConnectedClient>& pClient) {
+  //放入线程池队列,默认是同步队列SynchronousQueue，该队列需要有消费线程入队才会成功，这边循环放。
   threadManager_->add(pClient, timeout_, taskExpiration_);
 }
 

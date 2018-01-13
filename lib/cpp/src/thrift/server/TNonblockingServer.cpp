@@ -327,6 +327,8 @@ public:
         if (serverEventHandler_) {
           serverEventHandler_->processContext(connectionContext_, connection_->getTSocket());
         }
+
+        //由业务处理器处理
         if (!processor_->process(input_, output_, connectionContext_)
             || !input_->getTransport()->peek()) {
           break;
@@ -1400,6 +1402,7 @@ bool TNonblockingIOThread::notify(TNonblockingServer::TConnection* conn) {
   fd_set wfds, efds;
   int ret = -1;
   int kSize = sizeof(conn);
+  //获取指向conn连接的地址
   const char* pos = (const char*)const_cast_sockopt(&conn);
 
   while (kSize > 0) {
@@ -1420,6 +1423,7 @@ bool TNonblockingIOThread::notify(TNonblockingServer::TConnection* conn) {
     }
 
     if (FD_ISSET(fd, &wfds)) {
+      //将conn连接的地址发送fd， pos中存放的是conn的地址
       ret = send(fd, pos, kSize, 0);
       if (ret < 0) {
         if (errno == EAGAIN) {

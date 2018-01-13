@@ -79,6 +79,22 @@ public:
    * Writing functions.
    */
 
+
+/*
+4(头, 正常是没有的) +  4 (version) + 4 字节(函数名字长度) + 函数名字(send) +  4字节(seqid)
+    + 1 字节(类型) + 2 字节 (第几个参数) + { 1 字节 结构体字段类型 + 2 字节 序列号 + 8 字节(int64) +
+                        1 字节 结构体类型 + 2 字节序列号 + 8 字节(int64)}
+    + 1 字节 stop(0x00) +
+ */
+
+/*
+{
+    1: i64 userid
+    2: i64 tid
+}
+*/
+
+
 /*
 
   对这个二进制协议进行一下简单的总结。
@@ -160,26 +176,34 @@ public:
 
   /*ol*/ uint32_t readMessageBegin(std::string& name, TMessageType& messageType, int32_t& seqid);
 
+  //没做事情
   /*ol*/ uint32_t readMessageEnd();
 
+  //没做事情
   inline uint32_t readStructBegin(std::string& name);
 
+  //没做事情
   inline uint32_t readStructEnd();
 
+  //读取字段类型和id
   inline uint32_t readFieldBegin(std::string& name, TType& fieldType, int16_t& fieldId);
 
+  //没做事情
   inline uint32_t readFieldEnd();
 
   inline uint32_t readMapBegin(TType& keyType, TType& valType, uint32_t& size);
 
+  //没做事情
   inline uint32_t readMapEnd();
 
   inline uint32_t readListBegin(TType& elemType, uint32_t& size);
 
+  //没做事情
   inline uint32_t readListEnd();
 
   inline uint32_t readSetBegin(TType& elemType, uint32_t& size);
 
+  //没做事情
   inline uint32_t readSetEnd();
 
   inline uint32_t readBool(bool& value);

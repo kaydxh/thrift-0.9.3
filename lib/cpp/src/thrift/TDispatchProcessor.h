@@ -69,6 +69,7 @@ public:
   }
 
 protected:
+  //读取函数名、seqid以及消息类型
   bool processFast(Protocol_* in, Protocol_* out, void* connectionContext) {
     std::string fname;
     protocol::TMessageType mtype;

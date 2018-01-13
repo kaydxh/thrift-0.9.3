@@ -250,6 +250,7 @@ uint32_t TBinaryProtocolT<Transport_, ByteOrder_>::readStructEnd() {
   return 0;
 }
 
+//读取字段类型和id
 template <class Transport_, class ByteOrder_>
 uint32_t TBinaryProtocolT<Transport_, ByteOrder_>::readFieldBegin(std::string& name,
                                                       TType& fieldType,

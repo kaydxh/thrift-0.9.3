@@ -59,6 +59,7 @@ void TConnectedClient::run() {
     }
 
     try {
+      //接受一个连接，然后交由业务处理器处理，处理完了之后等客户端关闭，然后重新接收请求，单线程阻塞的干活，实际工作中用肯定死翘翘
       if (!processor_->process(inputProtocol_, outputProtocol_, opaqueContext_)) {
         break;
       }
